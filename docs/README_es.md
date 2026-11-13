@@ -139,6 +139,96 @@ docker run -it --rm --env-file .env \
 
 Asegúrate de que las llaves montadas tengan permisos restrictivos (`chmod 600`).
 
+## Windows PowerShell (opcional)
+
+En Windows 11 puedes añadir funciones a tu perfil de PowerShell para que, al
+escribir `claude` en cualquier carpeta, se ejecute Claude Code dentro de la
+imagen publicada, con esa carpeta montada en `/app`. El script completo también
+está disponible como [gist](https://gist.github.com/ManuelFlorez/5d01a04f89e9d54aa0455f87abe680d1).
+
+### 1. Permitir que se ejecute el perfil
+
+PowerShell bloquea por defecto los scripts `.ps1`, incluido tu perfil. Permite
+los scripts locales para tu usuario (no requiere administrador):
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+Si `Get-ExecutionPolicy -List` muestra un valor distinto de `Undefined` en
+`MachinePolicy` o `UserPolicy`, la política la impone una directiva de grupo y
+debe cambiarla tu equipo de TI.
+
+### 2. Añadir las funciones al perfil
+
+```powershell
+if (!(Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
+notepad $PROFILE
+```
+
+Pega lo siguiente, guarda y recarga con `. $PROFILE`:
+
+```powershell
+$ClaudeImage   = "ghcr.io/manuelflorez/claude-dev-container:1.0.0"
+$ClaudeEnvFile = "$HOME\.claude-dev\.env"
+$ClaudeVolume  = "claude-config"
+
+function Invoke-ClaudeContainer {
+    $dockerArgs = @(
+        "run", "-it", "--rm",
+        "-v", "$((Get-Location).Path):/app",
+        "-v", "${ClaudeVolume}:/root/.claude",
+        "-e", "CLAUDE_CONFIG_DIR=/root/.claude",
+        "-w", "/app"
+    )
+    if (Test-Path $ClaudeEnvFile) { $dockerArgs += @("--env-file", $ClaudeEnvFile) }
+
+    docker @dockerArgs $ClaudeImage @args
+}
+
+function claude       { Invoke-ClaudeContainer claude @args }
+function claude-shell { Invoke-ClaudeContainer bash }
+```
+
+### 3. Crear el archivo de entorno (opcional)
+
+Las funciones cargan `$HOME\.claude-dev\.env` si existe; queda fuera de tus
+proyectos para no versionarlo por error:
+
+```powershell
+New-Item -ItemType Directory -Force "$HOME\.claude-dev" | Out-Null
+New-Item -ItemType File -Force "$HOME\.claude-dev\.env" | Out-Null
+notepad "$HOME\.claude-dev\.env"
+```
+
+Escribe tu token **sin comillas** (`docker --env-file` conserva las comillas
+como parte del valor):
+
+```
+GH_TOKEN=ghp_tu_token_aqui
+```
+
+Evita `echo ... >` u `Out-File` en Windows PowerShell 5.1: escriben en UTF-16
+o con BOM y Docker no lee bien la primera variable. El Bloc de notas de
+Windows 11 guarda en UTF-8 sin BOM.
+
+### 4. Uso
+
+```powershell
+cd C:\ruta\a\tu\proyecto
+claude               # Claude Code en la carpeta actual
+claude --version     # los argumentos se pasan tal cual a claude
+claude-shell         # bash dentro del contenedor
+```
+
+Notas:
+
+- Docker Desktop debe estar en ejecución (backend WSL2).
+- Si el paquete en GHCR es privado, ejecuta antes `docker login ghcr.io` con un
+  token con el permiso `read:packages`.
+- Estas funciones tienen prioridad sobre una instalación nativa de `claude` en
+  Windows; renómbralas (por ejemplo `claude-docker`) si tienes ambas.
+
 ## Notas de seguridad
 
 - **No subas** el archivo `.env` con claves reales a un repositorio público.
