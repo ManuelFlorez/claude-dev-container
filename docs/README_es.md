@@ -63,7 +63,11 @@ make build
 ### 2. Ejecutar el contenedor
 
 ```bash
-docker run -it --rm --env-file .env -v "${PWD}:/app" claude-dev
+docker run -it --rm --env-file .env \
+  -v "${PWD}:/app" \
+  -v claude-config:/root/.claude \
+  -e CLAUDE_CONFIG_DIR=/root/.claude \
+  claude-dev
 ```
 
 O:
@@ -75,7 +79,10 @@ make run
 Esto abre una shell `bash` dentro del contenedor, con:
 
 - las variables del `.env` cargadas,
-- el directorio actual montado en `/app`.
+- el directorio actual montado en `/app`,
+- un volumen Docker persistente (`claude-config` por defecto) montado en `/root/.claude` con `CLAUDE_CONFIG_DIR=/root/.claude`, para conservar las credenciales y datos de sesión de Claude Code (incluido `~/.claude.json`) entre ejecuciones.
+
+Estas rutas asumen que el contenedor se ejecuta como `root` (valor por defecto en esta imagen). Para eliminar las credenciales guardadas, detén el contenedor y ejecuta `docker volume rm claude-config`. Si te autenticas con una suscripción Claude Team mediante login interactivo, evita mezclarlo con `ANTHROPIC_API_KEY` salvo que lo necesites.
 
 ### 3. Autenticar GitHub (opcional)
 
@@ -104,7 +111,7 @@ Ejecuta `make help` para listar los objetivos disponibles:
 | Objetivo | Descripción |
 | --- | --- |
 | `make build` | Construye la imagen Docker. |
-| `make run` | Ejecuta el contenedor con `.env` y el directorio actual montado. |
+| `make run` | Ejecuta el contenedor con `.env`, `/app` montado y autenticación de Claude persistente. |
 | `make check` | Valida los archivos necesarios y que `.env` no esté versionado. |
 | `make clean` | Elimina la imagen Docker. |
 

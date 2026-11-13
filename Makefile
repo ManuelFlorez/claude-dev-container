@@ -1,5 +1,6 @@
 IMAGE ?= claude-dev
 ENV_FILE ?= .env
+CLAUDE_CONFIG_VOLUME ?= claude-config
 
 .PHONY: help build run check clean
 
@@ -9,8 +10,12 @@ help: ## Show available targets
 build: ## Build the Docker image
 	docker build -t $(IMAGE) .
 
-run: ## Run the container with .env and the current directory mounted
-	docker run -it --rm --env-file $(ENV_FILE) -v "$(CURDIR):/app" $(IMAGE)
+run: ## Run the container with .env, /app mounted, and persistent Claude auth
+	docker run -it --rm --env-file $(ENV_FILE) \
+		-v "$(CURDIR):/app" \
+		-v "$(CLAUDE_CONFIG_VOLUME):/root/.claude" \
+		-e CLAUDE_CONFIG_DIR=/root/.claude \
+		$(IMAGE)
 
 check: ## Validate required files and that .env is not tracked
 	@test -f .env.example || { echo "Missing .env.example"; exit 1; }

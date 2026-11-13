@@ -63,7 +63,11 @@ make build
 ### 2. Run the container
 
 ```bash
-docker run -it --rm --env-file .env -v "${PWD}:/app" claude-dev
+docker run -it --rm --env-file .env \
+  -v "${PWD}:/app" \
+  -v claude-config:/root/.claude \
+  -e CLAUDE_CONFIG_DIR=/root/.claude \
+  claude-dev
 ```
 
 Or:
@@ -75,7 +79,10 @@ make run
 This opens a `bash` shell inside the container with:
 
 - the variables from `.env` loaded,
-- the current directory mounted at `/app`.
+- the current directory mounted at `/app`,
+- a persistent Docker volume (`claude-config` by default) mounted at `/root/.claude` with `CLAUDE_CONFIG_DIR=/root/.claude`, so Claude Code credentials and session data (including `~/.claude.json`) are preserved across runs.
+
+These paths assume the container runs as `root` (default in this image). To remove saved credentials, stop the container and run `docker volume rm claude-config`. If you authenticate with a Claude Team subscription via interactive login, avoid mixing it with `ANTHROPIC_API_KEY` unless you need to.
 
 ### 3. Authenticate GitHub (optional)
 
@@ -104,7 +111,7 @@ Run `make help` to list the available targets:
 | Target | Description |
 | --- | --- |
 | `make build` | Build the Docker image. |
-| `make run` | Run the container with `.env` and the current directory mounted. |
+| `make run` | Run the container with `.env`, `/app` mounted, and persistent Claude auth. |
 | `make check` | Validate required files and that `.env` is not tracked by git. |
 | `make clean` | Remove the Docker image. |
 
